@@ -3,6 +3,7 @@ using FastEndpoints.Security;
 using Microsoft.Extensions.Options;
 using OpenTOY.Data.Entities;
 using OpenTOY.Data.Repositories;
+using OpenTOY.Emails.Views.Emails.AccountCreated;
 using OpenTOY.Endpoints;
 using OpenTOY.Options;
 
@@ -12,7 +13,7 @@ public interface IAccountService
 {
     Task<UserEntity?> GetOrCreateGuestAsync(SignInRequest req);
     Task<(UserEntity? user, string? error)> SignInEmailAsync(SignInRequest req);
-    Task<UserEntity> CreateEmailAccountAsync(int serviceId, string email, string password);
+    Task<UserEntity> CreateEmailAccountAsync(int serviceId, string serviceName, string email, string password);
     Task<bool> CheckEmailRegisteredAsync(int serviceId, string email);
     string GenerateJwtToken(int serviceId, int userId);
     bool IsValidEmail(string email);
@@ -23,7 +24,9 @@ public partial class AccountService : IAccountService
     private readonly ILogger<AccountService> _logger;
 
     private readonly IPasswordService _passwordService;
-    
+
+    private readonly IEmailService _emailService;
+
     private readonly IUserRepository _userRepository;
     
     private readonly IEmailAccountRepository _emailAccountRepository;
@@ -37,15 +40,17 @@ public partial class AccountService : IAccountService
     private static partial Regex EmailRegex();
 
     public AccountService(ILogger<AccountService> logger, IPasswordService passwordService,
-        IUserRepository userRepository, IEmailAccountRepository emailAccountRepository,
+        IEmailService emailService, IUserRepository userRepository, IEmailAccountRepository emailAccountRepository,
         IGuestAccountRepository guestAccountRepository, IOptions<JwtOptions> jwtOptions)
     {
         _logger = logger;
         _passwordService = passwordService;
+        _emailService = emailService;
         _userRepository = userRepository;
         _emailAccountRepository = emailAccountRepository;
         _guestAccountRepository = guestAccountRepository;
         _jwtOptions = jwtOptions;
+        _emailService = emailService;
     }
 
     public async Task<UserEntity?> GetOrCreateGuestAsync(SignInRequest req)
@@ -103,7 +108,7 @@ public partial class AccountService : IAccountService
         return (emailAccountEntity.User!, null);
     }
 
-    public async Task<UserEntity> CreateEmailAccountAsync(int serviceId, string email, string password)
+    public async Task<UserEntity> CreateEmailAccountAsync(int serviceId, string serviceName, string email, string password)
     {
         var hashedPassword = _passwordService.HashPassword(password, out var salt);
         
@@ -125,7 +130,11 @@ public partial class AccountService : IAccountService
         };
         
         await _emailAccountRepository.AddAsync(emailAccountEntity);
-        
+
+        var model = new AccountCreatedEmailViewModel(email, serviceName);
+        await _emailService.SendEmailAsync(email, "Welcome to OpenTOY",
+            "/Views/Emails/AccountCreated/AccountCreatedEmail.cshtml", model);
+
         return userEntity;
     }
 

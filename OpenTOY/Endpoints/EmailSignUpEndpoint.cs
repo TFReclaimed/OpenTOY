@@ -42,7 +42,7 @@ public class EmailSignUpEndpoint : Endpoint<EmailSignUpRequest, EmailSignUpRespo
         Logger.LogInformation("EmailSignUp - UUID2: {Uuid2}, Email: {Email}, Passwd: {Passwd} Params: {Params}",
             req.Uuid2, req.Email, passwd, req.NpParams.ToString(Env.IsProduction()));
         
-        var serviceExists = _serviceOptions.Value.Services.TryGetValue(req.NpParams.SvcId, out _);
+        var serviceExists = _serviceOptions.Value.Services.TryGetValue(req.NpParams.SvcId, out var serviceInfo);
         if (!serviceExists)
         {
             Logger.LogError("Service doesn't exist: {ServiceId}", req.NpParams.SvcId);
@@ -80,7 +80,7 @@ public class EmailSignUpEndpoint : Endpoint<EmailSignUpRequest, EmailSignUpRespo
             return;
         }
 
-        var user = await _accountService.CreateEmailAccountAsync(serviceId, email, req.Passwd);
+        var user = await _accountService.CreateEmailAccountAsync(serviceId, serviceInfo!.Title, email, req.Passwd);
 
         var response = new EmailSignUpResponse
         {

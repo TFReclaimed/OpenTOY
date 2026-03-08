@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using FastEndpoints;
 using Microsoft.Extensions.Options;
 using OpenTOY.Attributes;
+using OpenTOY.Emails.Views.Emails.ResetPassword;
 using OpenTOY.Extensions;
 using OpenTOY.Filters;
 using OpenTOY.Options;
@@ -13,15 +14,19 @@ namespace OpenTOY.Endpoints;
 public class ResetEmailPasswordEndpoint : Endpoint<ResetEmailPasswordRequest, ResetEmailPasswordResponse>
 {
     private readonly IAccountService _accountService;
-    
+
+    private readonly IEmailService _emailService;
+
     private readonly IOptions<ServiceOptions> _serviceOptions;
-    
-    public ResetEmailPasswordEndpoint(IAccountService accountService, IOptions<ServiceOptions> serviceOptions)
+
+    public ResetEmailPasswordEndpoint(IAccountService accountService, IEmailService emailService,
+        IOptions<ServiceOptions> serviceOptions)
     {
         _accountService = accountService;
+        _emailService = emailService;
         _serviceOptions = serviceOptions;
     }
-    
+
     public override void Configure()
     {
         Post("/sdk/requestResetPasswordNPAA.nx");
@@ -40,7 +45,7 @@ public class ResetEmailPasswordEndpoint : Endpoint<ResetEmailPasswordRequest, Re
         Logger.LogInformation("ResetEmailPassword - Email: {Email} ServiceId: {ServiceId}",
             req.Email, req.NpParams.SvcId);
         
-        var serviceExists = _serviceOptions.Value.Services.TryGetValue(req.NpParams.SvcId, out _);
+        var serviceExists = _serviceOptions.Value.Services.TryGetValue(req.NpParams.SvcId, out var serviceInfo);
         if (!serviceExists)
         {
             Logger.LogError("Service doesn't exist: {ServiceId}", req.NpParams.SvcId);
@@ -51,7 +56,9 @@ public class ResetEmailPasswordEndpoint : Endpoint<ResetEmailPasswordRequest, Re
         var isRegistered = await _accountService.CheckEmailRegisteredAsync(int.Parse(req.NpParams.SvcId), req.Email);
         if (isRegistered)
         {
-            // TODO: send them an email
+            var model = new ResetPasswordViewModel(req.Email, serviceInfo!.Title, "");
+            await _emailService.SendEmailAsync(req.Email, $"{serviceInfo.Title} Password Reset",
+                "/Views/Emails/ResetPassword/ResetPasswordEmail.cshtml", model);
         }
 
         var response = new ResetEmailPasswordResponse

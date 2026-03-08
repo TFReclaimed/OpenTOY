@@ -4,9 +4,11 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
+using Mjml.Net;
 using OpenTOY.Auth;
 using OpenTOY.Data;
 using OpenTOY.Data.Repositories;
+using OpenTOY.Emails.Services;
 using OpenTOY.Extensions;
 using OpenTOY.Options;
 using OpenTOY.Services;
@@ -18,7 +20,8 @@ config.AddJsonFile("services.json", false, true);
 
 builder.Services
     .AddConfiguredOptions<JwtOptions>(config)
-    .AddConfiguredOptions<ServiceOptions>(config);
+    .AddConfiguredOptions<ServiceOptions>(config)
+    .AddConfiguredOptions<EmailOptions>(config);
 
 builder.Services.AddSingleton<ITokenValidator, TokenValidator>();
 
@@ -29,10 +32,15 @@ builder.Services.AddDbContext<AppDb>(o =>
     o.UseNpgsql(connectionString);
 });
 
+builder.Services.AddRazorPages();
+builder.Services.AddSingleton<IMjmlRenderer, MjmlRenderer>();
+
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IEmailAccountRepository, EmailAccountRepository>();
 builder.Services.AddScoped<IGuestAccountRepository, GuestAccountRepository>();
 
+builder.Services.AddScoped<IRazorViewToStringRenderer, RazorViewToStringRenderer>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IPasswordService, PasswordService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 
