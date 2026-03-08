@@ -43,11 +43,27 @@ public class SignInEndpoint : Endpoint<SignInRequest, SignInResponse>
         Logger.LogInformation("SignIn - Device: {DeviceType} UUID2: {Uuid2}, UserId: {UserId}, Passwd: {Passwd}, MemType: {MemType} Params: {Params}",
             req.DeviceInfo.Device, req.Uuid2, req.UserId, passwd, req.MemType, req.NpParams.ToString(Env.IsProduction()));
 
-        var serviceExists = _serviceOptions.Value.Services.TryGetValue(req.NpParams.SvcId, out _);
+        var serviceExists = _serviceOptions.Value.Services.TryGetValue(req.NpParams.SvcId, out var serviceInfo);
         if (!serviceExists)
         {
             Logger.LogError("Service doesn't exist: {ServiceId}", req.NpParams.SvcId);
             await Send.NotFoundAsync();
+            return;
+        }
+
+        if (!serviceInfo!.LoginMethods.Contains(req.MemType))
+        {
+            Logger.LogError("Login method not supported for service. ServiceId: {ServiceId}, MemType: {MemType}",
+                req.NpParams.SvcId, req.MemType);
+
+            var errorResponse = new SignInResponse
+            {
+                ErrorCode = 1,
+                ErrorText = "Login method not supported for this service",
+                Result = new ToyLoginResult()
+            };
+
+            await this.SendCommonEncryptedAsync(errorResponse);
             return;
         }
 
