@@ -23,7 +23,10 @@ config.AddJsonFile("services.json", false, true);
 builder.Services
     .AddConfiguredOptions<JwtOptions>(config)
     .AddConfiguredOptions<ServiceOptions>(config)
-    .AddConfiguredOptions<EmailOptions>(config);
+    .AddConfiguredOptions<EmailOptions>(config)
+    .AddConfiguredOptions<PasswordResetOptions>(config);
+
+builder.Services.AddDataProtection();
 
 builder.Services.AddSingleton<ITokenValidator, TokenValidator>();
 

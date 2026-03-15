@@ -1,5 +1,8 @@
+using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using FastEndpoints.Security;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Options;
 using OpenTOY.Data.Entities;
 using OpenTOY.Data.Repositories;
@@ -22,6 +25,8 @@ public interface IAccountService
     Task<UserEntity> CreateEmailAccountAsync(int serviceId, string serviceName, string email, string password);
     Task<bool> CheckEmailRegisteredAsync(int serviceId, string email);
     Task<bool> SendPasswordResetEmailAsync(int serviceId, string email);
+    bool IsPasswordResetTokenValid(string token);
+    Task<bool> ResetPasswordWithTokenAsync(string token, string newPassword);
     string GenerateJwtToken(int serviceId, int userId);
     bool IsValidEmail(string email);
 }
@@ -44,6 +49,10 @@ public partial class AccountService : IAccountService
 
     private readonly IOptions<JwtOptions> _jwtOptions;
 
+    private readonly IOptions<PasswordResetOptions> _passwordResetOptions;
+
+    private readonly ITimeLimitedDataProtector _passwordResetTokenProtector;
+
     // Copied from https://emailregex.com/
     [GeneratedRegex("^(?(\")(\".+?(?<!\\\\)\"@)|(([0-9a-z]((\\.(?!\\.))|[-!#\\$%&'\\*\\+/=\\?\\^`\\{\\}\\|~\\w])*)(?<=[0-9a-z])@))(?(\\[)(\\[(\\d{1,3}\\.){3}\\d{1,3}\\])|(([0-9a-z][-\\w]*[0-9a-z]*\\.)+[a-z0-9][\\-a-z0-9]{0,22}[a-z0-9]))$", RegexOptions.IgnoreCase)]
     private static partial Regex EmailRegex();
@@ -51,7 +60,8 @@ public partial class AccountService : IAccountService
     public AccountService(ILogger<AccountService> logger, IPasswordService passwordService,
         IEmailService emailService, IUserRepository userRepository, IEmailAccountRepository emailAccountRepository,
         IGuestAccountRepository guestAccountRepository, IOptions<ServiceOptions> serviceOptions,
-        IOptions<JwtOptions> jwtOptions)
+        IOptions<JwtOptions> jwtOptions, IOptions<PasswordResetOptions> passwordResetOptions,
+        IDataProtectionProvider dataProtectionProvider)
     {
         _logger = logger;
         _passwordService = passwordService;
@@ -61,6 +71,10 @@ public partial class AccountService : IAccountService
         _guestAccountRepository = guestAccountRepository;
         _serviceOptions = serviceOptions;
         _jwtOptions = jwtOptions;
+        _passwordResetOptions = passwordResetOptions;
+        _passwordResetTokenProtector = dataProtectionProvider
+            .CreateProtector("OpenTOY.PasswordReset")
+            .ToTimeLimitedDataProtector();
     }
 
     public async Task<(UserEntity? user, string error)> SignInAsync(int serviceId, string email, string password)
@@ -217,17 +231,41 @@ public partial class AccountService : IAccountService
 
     public async Task<bool> SendPasswordResetEmailAsync(int serviceId, string email)
     {
-        var isRegistered = await CheckEmailRegisteredAsync(serviceId, email);
+        var normalizedEmail = email.ToLower();
+        var isRegistered = await CheckEmailRegisteredAsync(serviceId, normalizedEmail);
         if (!isRegistered)
         {
             return false;
         }
 
+        var tokenPayload = new PasswordResetTokenPayload(serviceId, normalizedEmail);
+        var tokenJson = JsonSerializer.Serialize(tokenPayload);
+        var tokenLifetime = TimeSpan.FromMinutes(_passwordResetOptions.Value.TokenLifetimeMinutes);
+        var token = _passwordResetTokenProtector.Protect(tokenJson, tokenLifetime);
+
         var serviceName = GetServiceName(serviceId);
-        var model = new ResetPasswordViewModel(email, serviceName, "");
+        var resetBaseUrl = _passwordResetOptions.Value.ResetPageBaseUrl.TrimEnd('/');
+        var resetLink = $"{resetBaseUrl}/reset-password?token={Uri.EscapeDataString(token)}";
+        var model = new ResetPasswordViewModel(email, serviceName, resetLink,
+            (int) Math.Ceiling(tokenLifetime.TotalMinutes));
         await _emailService.SendEmailAsync(email, $"{serviceName} Password Reset",
             "/Views/Emails/ResetPassword/ResetPasswordEmail.cshtml", model);
         return true;
+    }
+
+    public bool IsPasswordResetTokenValid(string token)
+    {
+        return TryReadPasswordResetToken(token, out _);
+    }
+
+    public async Task<bool> ResetPasswordWithTokenAsync(string token, string newPassword)
+    {
+        if (!TryReadPasswordResetToken(token, out var payload))
+        {
+            return false;
+        }
+
+        return await ChangePasswordAsync(payload.ServiceId, payload.Email, newPassword);
     }
 
     public string GenerateJwtToken(int serviceId, int userId)
@@ -260,4 +298,37 @@ public partial class AccountService : IAccountService
 
         return serviceName;
     }
+
+    private bool TryReadPasswordResetToken(string token, [NotNullWhen(true)] out PasswordResetTokenPayload? payload)
+    {
+        payload = null;
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return false;
+        }
+
+        try
+        {
+            var tokenJson = _passwordResetTokenProtector.Unprotect(token, out _);
+            var tokenPayload = JsonSerializer.Deserialize<PasswordResetTokenPayload>(tokenJson);
+
+            if (tokenPayload is null)
+            {
+                return false;
+            }
+
+            payload = tokenPayload with
+            {
+                Email = tokenPayload.Email.ToLower()
+            };
+
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public record PasswordResetTokenPayload(int ServiceId, string Email);
 }
