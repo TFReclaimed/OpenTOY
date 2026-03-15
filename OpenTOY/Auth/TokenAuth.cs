@@ -27,7 +27,7 @@ public class TokenAuth : AuthenticationHandler<AuthenticationSchemeOptions>
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        if (IsPublicEndpoint())
+        if (!IsFastEndpoint() || IsPublicEndpoint())
         {
             return Task.FromResult(AuthenticateResult.NoResult());
         }
@@ -146,10 +146,7 @@ public class TokenAuth : AuthenticationHandler<AuthenticationSchemeOptions>
 
     private bool IsNoEncryption()
     {
-        var epDefinition = Context
-            .GetEndpoint()?
-            .Metadata.OfType<EndpointDefinition>()
-            .FirstOrDefault();
+        var epDefinition = GetEndpointDefinition();
 
         return epDefinition?.EndpointAttributes?
             .OfType<NoEncryptionAttribute>()
@@ -166,13 +163,23 @@ public class TokenAuth : AuthenticationHandler<AuthenticationSchemeOptions>
 
     private bool IsCommonEncryption()
     {
-        var epDefinition = Context
-            .GetEndpoint()?
-            .Metadata.OfType<EndpointDefinition>()
-            .FirstOrDefault();
+        var epDefinition = GetEndpointDefinition();
 
         return epDefinition?.EndpointAttributes?
             .OfType<CommonEncryptionAttribute>()
             .Any() is true;
+    }
+
+    private bool IsFastEndpoint()
+    {
+        return GetEndpointDefinition() is not null;
+    }
+
+    private EndpointDefinition? GetEndpointDefinition()
+    {
+        return Context
+            .GetEndpoint()?
+            .Metadata.OfType<EndpointDefinition>()
+            .FirstOrDefault();
     }
 }

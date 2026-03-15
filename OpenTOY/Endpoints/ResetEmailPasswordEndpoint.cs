@@ -13,15 +13,15 @@ namespace OpenTOY.Endpoints;
 public class ResetEmailPasswordEndpoint : Endpoint<ResetEmailPasswordRequest, ResetEmailPasswordResponse>
 {
     private readonly IAccountService _accountService;
-    
+
     private readonly IOptions<ServiceOptions> _serviceOptions;
-    
+
     public ResetEmailPasswordEndpoint(IAccountService accountService, IOptions<ServiceOptions> serviceOptions)
     {
         _accountService = accountService;
         _serviceOptions = serviceOptions;
     }
-    
+
     public override void Configure()
     {
         Post("/sdk/requestResetPasswordNPAA.nx");
@@ -39,7 +39,7 @@ public class ResetEmailPasswordEndpoint : Endpoint<ResetEmailPasswordRequest, Re
     {
         Logger.LogInformation("ResetEmailPassword - Email: {Email} ServiceId: {ServiceId}",
             req.Email, req.NpParams.SvcId);
-        
+
         var serviceExists = _serviceOptions.Value.Services.TryGetValue(req.NpParams.SvcId, out _);
         if (!serviceExists)
         {
@@ -47,19 +47,15 @@ public class ResetEmailPasswordEndpoint : Endpoint<ResetEmailPasswordRequest, Re
             await Send.NotFoundAsync();
             return;
         }
-        
-        var isRegistered = await _accountService.CheckEmailRegisteredAsync(int.Parse(req.NpParams.SvcId), req.Email);
-        if (isRegistered)
-        {
-            // TODO: send them an email
-        }
+
+        var isRegistered = await _accountService.SendPasswordResetEmailAsync(int.Parse(req.NpParams.SvcId), req.Email);
 
         var response = new ResetEmailPasswordResponse
         {
             ErrorCode = isRegistered ? 0 : 1,
             ErrorDetail = isRegistered ? string.Empty : "No account found with that email address"
         };
-        
+
         await this.SendCommonEncryptedAsync(response);
     }
 }

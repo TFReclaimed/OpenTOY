@@ -1,0 +1,60 @@
+@page "/"
+
+<PageTitle>OpenTOY</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-16">
+    <MudGrid Justify="Justify.Center">
+        <MudItem xs="12" sm="10" md="8">
+            <MudPaper Elevation="3" Class="pa-8 text-center">
+                <MudIcon
+                    Icon="@Icons.Material.Filled.AccountCircle"
+                    Color="Color.Primary"
+                    Style="font-size: 5rem;"
+                    Class="mb-4"/>
+
+                <MudText Typo="Typo.h3" Color="Color.Primary" GutterBottom="true">
+                    Welcome to OpenTOY!
+                </MudText>
+
+                <MudText Typo="Typo.subtitle1" Class="mb-8">
+                    Open source Nexon TOY server emulator.
+                </MudText>
+
+                <MudDivider Class="mb-8"/>
+
+                <MudGrid Justify="Justify.Center" Spacing="4">
+                    <MudItem>
+                        <MudButton
+                            Href="/change-password"
+                            Variant="Variant.Filled"
+                            Color="Color.Primary"
+                            Size="Size.Large"
+                            StartIcon="@Icons.Material.Filled.Lock">
+                            Change Password
+                        </MudButton>
+                    </MudItem>
+                    <MudItem>
+                        <MudButton
+                            Href="/change-email"
+                            Variant="Variant.Filled"
+                            Color="Color.Primary"
+                            Size="Size.Large"
+                            StartIcon="@Icons.Material.Filled.Email">
+                            Change Email
+                        </MudButton>
+                    </MudItem>
+                    <MudItem>
+                        <MudButton
+                            Href="/forgot-password"
+                            Variant="Variant.Filled"
+                            Color="Color.Primary"
+                            Size="Size.Large"
+                            StartIcon="@Icons.Material.Filled.Help">
+                            Forgot Password
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudContainer>

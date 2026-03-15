@@ -1,0 +1,25 @@
+@model OpenTOY.Emails.Views.Emails.EmailChanged.EmailChangedViewModel
+
+<mj-text font-weight="700" color="#3d4852" font-size="18px" padding-bottom="16px">
+    @Model.ServiceName Email Changed
+</mj-text>
+
+<mj-text color="#718096" font-size="16px" line-height="1.4">
+    Hi @Model.OldEmail,<br/><br/>
+    This is a confirmation that the email address associated with your @Model.ServiceName account has been changed.
+</mj-text>
+
+<mj-table color="#718096" font-size="16px" line-height="1.4" padding-top="16px" padding-bottom="16px">
+    <tr>
+        <td style="padding: 8px; border: 1px solid #e2e8f0;">Old Email</td>
+        <td style="padding: 8px; border: 1px solid #e2e8f0;">@Model.OldEmail</td>
+    </tr>
+    <tr>
+        <td style="padding: 8px; border: 1px solid #e2e8f0;">New Email</td>
+        <td style="padding: 8px; border: 1px solid #e2e8f0;">@Model.NewEmail</td>
+    </tr>
+</mj-table>
+
+<mj-text color="#718096" font-size="16px" line-height="1.4">
+    Regards, <br/>The OpenTOY team
+</mj-text>
