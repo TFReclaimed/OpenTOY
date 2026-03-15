@@ -2,7 +2,6 @@ using System.Text.Json.Serialization;
 using FastEndpoints;
 using Microsoft.Extensions.Options;
 using OpenTOY.Attributes;
-using OpenTOY.Emails.Views.Emails.ResetPassword;
 using OpenTOY.Extensions;
 using OpenTOY.Filters;
 using OpenTOY.Options;
@@ -15,15 +14,11 @@ public class ResetEmailPasswordEndpoint : Endpoint<ResetEmailPasswordRequest, Re
 {
     private readonly IAccountService _accountService;
 
-    private readonly IEmailService _emailService;
-
     private readonly IOptions<ServiceOptions> _serviceOptions;
 
-    public ResetEmailPasswordEndpoint(IAccountService accountService, IEmailService emailService,
-        IOptions<ServiceOptions> serviceOptions)
+    public ResetEmailPasswordEndpoint(IAccountService accountService, IOptions<ServiceOptions> serviceOptions)
     {
         _accountService = accountService;
-        _emailService = emailService;
         _serviceOptions = serviceOptions;
     }
 
@@ -44,29 +39,23 @@ public class ResetEmailPasswordEndpoint : Endpoint<ResetEmailPasswordRequest, Re
     {
         Logger.LogInformation("ResetEmailPassword - Email: {Email} ServiceId: {ServiceId}",
             req.Email, req.NpParams.SvcId);
-        
-        var serviceExists = _serviceOptions.Value.Services.TryGetValue(req.NpParams.SvcId, out var serviceInfo);
+
+        var serviceExists = _serviceOptions.Value.Services.TryGetValue(req.NpParams.SvcId, out _);
         if (!serviceExists)
         {
             Logger.LogError("Service doesn't exist: {ServiceId}", req.NpParams.SvcId);
             await Send.NotFoundAsync();
             return;
         }
-        
-        var isRegistered = await _accountService.CheckEmailRegisteredAsync(int.Parse(req.NpParams.SvcId), req.Email);
-        if (isRegistered)
-        {
-            var model = new ResetPasswordViewModel(req.Email, serviceInfo!.Title, "");
-            await _emailService.SendEmailAsync(req.Email, $"{serviceInfo.Title} Password Reset",
-                "/Views/Emails/ResetPassword/ResetPasswordEmail.cshtml", model);
-        }
+
+        var isRegistered = await _accountService.SendPasswordResetEmailAsync(int.Parse(req.NpParams.SvcId), req.Email);
 
         var response = new ResetEmailPasswordResponse
         {
             ErrorCode = isRegistered ? 0 : 1,
             ErrorDetail = isRegistered ? string.Empty : "No account found with that email address"
         };
-        
+
         await this.SendCommonEncryptedAsync(response);
     }
 }

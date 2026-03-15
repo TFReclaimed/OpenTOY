@@ -1,0 +1,26 @@
+@inherits LayoutComponentBase
+
+<MudThemeProvider IsDarkMode="true"/>
+<MudPopoverProvider/>
+
+<MudLayout>
+    <MudAppBar Elevation="1">
+        <MudLink Href="/" Typo="Typo.h5" Class="ml-3" Color="Color.Inherit" Underline="Underline.None">
+            OpenTOY
+        </MudLink>
+        <MudSpacer />
+        <MudIconButton
+            Href="https://discord.gg/"
+            Target="_blank"
+            Icon="@Icons.Custom.Brands.Discord"
+            Color="Color.Inherit"/>
+        <MudIconButton
+            Href="https://github.com/TFInternal/OpenTOY"
+            Target="_blank"
+            Icon="@Icons.Custom.Brands.GitHub"
+            Color="Color.Inherit"/>
+    </MudAppBar>
+    <MudMainContent Class="pt-20 pa-4">
+        @Body
+    </MudMainContent>
+</MudLayout>

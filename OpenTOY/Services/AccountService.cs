@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using OpenTOY.Data.Entities;
 using OpenTOY.Data.Repositories;
 using OpenTOY.Emails.Views.Emails.AccountCreated;
+using OpenTOY.Emails.Views.Emails.ResetPassword;
 using OpenTOY.Endpoints;
 using OpenTOY.Options;
 
@@ -11,10 +12,14 @@ namespace OpenTOY.Services;
 
 public interface IAccountService
 {
+    Task<(UserEntity? user, string error)> SignInAsync(int serviceId, string email, string password);
+    Task<bool> ChangePasswordAsync(int serviceId, string email, string newPassword);
+    Task<bool> ChangeEmailAsync(int serviceId, string oldEmail, string newEmail);
     Task<UserEntity?> GetOrCreateGuestAsync(SignInRequest req);
     Task<(UserEntity? user, string? error)> SignInEmailAsync(SignInRequest req);
     Task<UserEntity> CreateEmailAccountAsync(int serviceId, string serviceName, string email, string password);
     Task<bool> CheckEmailRegisteredAsync(int serviceId, string email);
+    Task<bool> SendPasswordResetEmailAsync(int serviceId, string email);
     string GenerateJwtToken(int serviceId, int userId);
     bool IsValidEmail(string email);
 }
@@ -32,7 +37,9 @@ public partial class AccountService : IAccountService
     private readonly IEmailAccountRepository _emailAccountRepository;
     
     private readonly IGuestAccountRepository _guestAccountRepository;
-    
+
+    private readonly IOptions<ServiceOptions> _serviceOptions;
+
     private readonly IOptions<JwtOptions> _jwtOptions;
 
     // Copied from https://emailregex.com/
@@ -41,7 +48,8 @@ public partial class AccountService : IAccountService
 
     public AccountService(ILogger<AccountService> logger, IPasswordService passwordService,
         IEmailService emailService, IUserRepository userRepository, IEmailAccountRepository emailAccountRepository,
-        IGuestAccountRepository guestAccountRepository, IOptions<JwtOptions> jwtOptions)
+        IGuestAccountRepository guestAccountRepository, IOptions<ServiceOptions> serviceOptions,
+        IOptions<JwtOptions> jwtOptions)
     {
         _logger = logger;
         _passwordService = passwordService;
@@ -49,8 +57,58 @@ public partial class AccountService : IAccountService
         _userRepository = userRepository;
         _emailAccountRepository = emailAccountRepository;
         _guestAccountRepository = guestAccountRepository;
+        _serviceOptions = serviceOptions;
         _jwtOptions = jwtOptions;
-        _emailService = emailService;
+    }
+
+    public async Task<(UserEntity? user, string error)> SignInAsync(int serviceId, string email, string password)
+    {
+        var emailAccountEntity = await _emailAccountRepository.GetByEmailAsync(serviceId, email.ToLower());
+        if (emailAccountEntity is null)
+        {
+            return (null, "Invalid email or password");
+        }
+
+        if (!_passwordService.VerifyPassword(password, emailAccountEntity.Password, emailAccountEntity.Salt))
+        {
+            return (null, "Invalid email or password");
+        }
+
+        return (emailAccountEntity.User!, string.Empty);
+    }
+
+    public async Task<bool> ChangePasswordAsync(int serviceId, string email, string newPassword)
+    {
+        var emailAccountEntity = await _emailAccountRepository.GetByEmailAsync(serviceId, email.ToLower());
+        if (emailAccountEntity is null)
+        {
+            return false;
+        }
+
+        var hashedPassword = _passwordService.HashPassword(newPassword, out var salt);
+        emailAccountEntity.Password = hashedPassword;
+        emailAccountEntity.Salt = Convert.ToHexString(salt);
+
+        await _emailAccountRepository.UpdateAsync(emailAccountEntity);
+        return true;
+    }
+
+    public async Task<bool> ChangeEmailAsync(int serviceId, string oldEmail, string newEmail)
+    {
+        var emailAccountEntity = await _emailAccountRepository.GetByEmailAsync(serviceId, oldEmail.ToLower());
+        if (emailAccountEntity is null)
+        {
+            return false;
+        }
+
+        if (await _emailAccountRepository.CheckEmailRegisteredAsync(serviceId, newEmail.ToLower()))
+        {
+            return false;
+        }
+
+        emailAccountEntity.Email = newEmail.ToLower();
+        await _emailAccountRepository.UpdateAsync(emailAccountEntity);
+        return true;
     }
 
     public async Task<UserEntity?> GetOrCreateGuestAsync(SignInRequest req)
@@ -141,6 +199,26 @@ public partial class AccountService : IAccountService
     public async Task<bool> CheckEmailRegisteredAsync(int serviceId, string email)
     {
         return await _emailAccountRepository.CheckEmailRegisteredAsync(serviceId, email.ToLower());
+    }
+
+    public async Task<bool> SendPasswordResetEmailAsync(int serviceId, string email)
+    {
+        var isRegistered = await CheckEmailRegisteredAsync(serviceId, email);
+        if (!isRegistered)
+        {
+            return false;
+        }
+
+        var serviceName = serviceId.ToString();
+        if (_serviceOptions.Value.Services.TryGetValue(serviceName, out var serviceInfo))
+        {
+            serviceName = serviceInfo.Title;
+        }
+
+        var model = new ResetPasswordViewModel(email, serviceName, "");
+        await _emailService.SendEmailAsync(email, $"{serviceName} Password Reset",
+            "/Views/Emails/ResetPassword/ResetPasswordEmail.cshtml", model);
+        return true;
     }
 
     public string GenerateJwtToken(int serviceId, int userId)

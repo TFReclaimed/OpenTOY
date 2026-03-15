@@ -5,7 +5,9 @@ using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Mjml.Net;
+using MudBlazor.Services;
 using OpenTOY.Auth;
+using OpenTOY.Components;
 using OpenTOY.Data;
 using OpenTOY.Data.Repositories;
 using OpenTOY.Emails.Services;
@@ -33,6 +35,8 @@ builder.Services.AddDbContext<AppDb>(o =>
 });
 
 builder.Services.AddRazorPages();
+builder.Services.AddRazorComponents();
+builder.Services.AddMudServices();
 builder.Services.AddSingleton<IMjmlRenderer, MjmlRenderer>();
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
@@ -72,12 +76,19 @@ if (app.Environment.IsProduction())
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDb>();
     db.Database.Migrate();
+
+    app.UseExceptionHandler("/not-found");
 }
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor
 });
+
+app.UseAntiforgery();
+
+app.MapRazorComponents<App>();
+app.MapStaticAssets();
 
 app.UseHttpLogging();
 

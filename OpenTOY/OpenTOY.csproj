@@ -8,6 +8,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <PackageReference Include="Extensions.MudBlazor.StaticInput" Version="4.1.0" />
       <PackageReference Include="FastEndpoints" Version="8.0.1" />
       <PackageReference Include="FastEndpoints.Security" Version="8.0.1" />
       <PackageReference Include="MailKit" Version="4.15.1" />
@@ -16,6 +17,7 @@
         <PrivateAssets>all</PrivateAssets>
         <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       </PackageReference>
+      <PackageReference Include="MudBlazor" Version="9.1.0" />
       <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
     </ItemGroup>
 
