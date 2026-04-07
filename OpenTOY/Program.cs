@@ -72,6 +72,17 @@ builder.Services
     .AddAuthentication(TokenAuth.SchemeName)
     .AddScheme<AuthenticationSchemeOptions, TokenAuth>(TokenAuth.SchemeName, null);
 
+builder.Services.AddCors(o =>
+{
+    o.AddDefaultPolicy(p =>
+    {
+        p.SetIsOriginAllowed(_ => true)
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials();
+    });
+});
+
 var app = builder.Build();
 
 if (app.Environment.IsProduction())
@@ -81,6 +92,8 @@ if (app.Environment.IsProduction())
     db.Database.Migrate();
 
     app.UseExceptionHandler("/not-found");
+
+    app.UseCors();
 }
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions
