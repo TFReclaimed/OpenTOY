@@ -51,6 +51,8 @@ public partial class AccountService : IAccountService
 
     private readonly IOptions<PasswordResetOptions> _passwordResetOptions;
 
+    private readonly IOptions<EmailOptions> _emailOptions;
+
     private readonly ITimeLimitedDataProtector _passwordResetTokenProtector;
 
     // Copied from https://emailregex.com/
@@ -61,7 +63,7 @@ public partial class AccountService : IAccountService
         IEmailService emailService, IUserRepository userRepository, IEmailAccountRepository emailAccountRepository,
         IGuestAccountRepository guestAccountRepository, IOptions<ServiceOptions> serviceOptions,
         IOptions<JwtOptions> jwtOptions, IOptions<PasswordResetOptions> passwordResetOptions,
-        IDataProtectionProvider dataProtectionProvider)
+        IOptions<EmailOptions> emailOptions, IDataProtectionProvider dataProtectionProvider)
     {
         _logger = logger;
         _passwordService = passwordService;
@@ -72,6 +74,7 @@ public partial class AccountService : IAccountService
         _serviceOptions = serviceOptions;
         _jwtOptions = jwtOptions;
         _passwordResetOptions = passwordResetOptions;
+        _emailOptions = emailOptions;
         _passwordResetTokenProtector = dataProtectionProvider
             .CreateProtector("OpenTOY.PasswordReset")
             .ToTimeLimitedDataProtector();
@@ -217,9 +220,12 @@ public partial class AccountService : IAccountService
         
         await _emailAccountRepository.AddAsync(emailAccountEntity);
 
-        var model = new AccountCreatedEmailViewModel(email, serviceName);
-        await _emailService.SendEmailAsync(email, "Welcome to OpenTOY",
-            "/Views/Emails/AccountCreated/AccountCreatedEmail.cshtml", model);
+        if (_emailOptions.Value.SendWelcomeEmail)
+        {
+            var model = new AccountCreatedEmailViewModel(email, serviceName);
+            await _emailService.SendEmailAsync(email, "Welcome to OpenTOY",
+                "/Views/Emails/AccountCreated/AccountCreatedEmail.cshtml", model);
+        }
 
         return userEntity;
     }
