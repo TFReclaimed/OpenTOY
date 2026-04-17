@@ -92,9 +92,9 @@ if (app.Environment.IsProduction())
     db.Database.Migrate();
 
     app.UseExceptionHandler("/not-found");
-
-    app.UseCors();
 }
+
+app.UseCors();
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
