@@ -110,6 +110,9 @@ public partial class AccountService : IAccountService
 
         await _emailAccountRepository.UpdateAsync(emailAccountEntity);
 
+        _logger.LogInformation("Password changed for service {ServiceId}, email {Email}",
+            serviceId, email);
+
         var serviceName = GetServiceName(serviceId);
         var model = new PasswordChangedViewModel(email, serviceName);
         await _emailService.SendEmailAsync(email, "OpenTOY Password Changed",
@@ -134,6 +137,8 @@ public partial class AccountService : IAccountService
             return false;
         }
 
+        _logger.LogInformation("Email changed for service {ServiceId}: {OldEmail} -> {NewEmail}",
+            serviceId, oldEmail, newEmail);
 
         var serviceName = GetServiceName(serviceId);
         var model = new EmailChangedViewModel(oldEmail, newEmail, serviceName);
@@ -257,6 +262,9 @@ public partial class AccountService : IAccountService
             (int) Math.Ceiling(tokenLifetime.TotalMinutes));
         await _emailService.SendEmailAsync(email, $"{serviceName} Password Reset",
             "/Views/Emails/ResetPassword/ResetPasswordEmail.cshtml", model);
+
+        _logger.LogInformation("Sent password reset email for service {ServiceId}, email {Email}",
+            serviceId, email);
         return true;
     }
 
