@@ -120,19 +120,20 @@ public partial class AccountService : IAccountService
 
     public async Task<bool> ChangeEmailAsync(int serviceId, string oldEmail, string newEmail)
     {
-        var emailAccountEntity = await _emailAccountRepository.GetByEmailAsync(serviceId, oldEmail.ToLower());
-        if (emailAccountEntity is null)
+        var normalizedOldEmail = oldEmail.ToLower();
+        var normalizedNewEmail = newEmail.ToLower();
+
+        if (await _emailAccountRepository.CheckEmailRegisteredAsync(serviceId, normalizedNewEmail))
         {
             return false;
         }
 
-        if (await _emailAccountRepository.CheckEmailRegisteredAsync(serviceId, newEmail.ToLower()))
+        var changed = await _emailAccountRepository.ChangeEmailAsync(serviceId, normalizedOldEmail, normalizedNewEmail);
+        if (!changed)
         {
             return false;
         }
 
-        emailAccountEntity.Email = newEmail.ToLower();
-        await _emailAccountRepository.UpdateAsync(emailAccountEntity);
 
         var serviceName = GetServiceName(serviceId);
         var model = new EmailChangedViewModel(oldEmail, newEmail, serviceName);
